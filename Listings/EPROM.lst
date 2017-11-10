@@ -1,0 +1,213 @@
+C51 COMPILER V9.56.0.0   EPROM                                                             11/10/2017 09:15:03 PAGE 1   
+
+
+C51 COMPILER V9.56.0.0, COMPILATION OF MODULE EPROM
+OBJECT MODULE PLACED IN EPROM.OBJ
+COMPILER INVOKED BY: C:\Keil_v5\C51\BIN\C51.EXE EPROM.c OMF2 OPTIMIZE(8,SPEED) BROWSE INCDIR(C:\Keil_v5\C51\INC\SiLABS\s
+                    -hared\si8051Base) DEBUG PRINT(.\Listings\EPROM.lst) TABS(2)
+
+line level    source
+
+   1          #include <REG_MPC89L51-515.h>
+   2          #include <INTRINS.H>  // _nop_ 功能：暫停一個CPU的週期時間 
+   3          
+   4          #include "EPROM.h"
+   5          #include "LCM.h"
+   6          
+   7          /** EPROM 型號：FM25C160ds 
+   8          /** 容量：2048 * 8 bits (000~7FFH * 一次可輸入8 bits資料量)
+   9          **/
+  10          
+  11          /** -----EPROM SPI----- **/
+  12          unsigned char SPI_i;    //共用的i，絕不能平常呼叫，中斷又呼叫
+  13          
+  14          void EPROM_Writ_SPI(unsigned char Op_code) {
+  15   1        
+  16   1        for( SPI_i = 0; SPI_i <= 7; SPI_i++ ) {
+  17   2          
+  18   2          SI = 0; //寫入0
+  19   2          //一次輸入一個位元，利用AND保留輸入資料的其中一個位元資料
+  20   2          if( ( Op_code & ( 0x80 >> SPI_i ) ) != 0 )  SI = 1; //寫入1
+  21   2            
+  22   2          CLK = 1; //Clock：打一個時脈，表示有一個位元資料要輸入
+  23   2          CLK = 0;
+  24   2        }
+  25   1        
+  26   1        SI = 0;
+  27   1      }
+  28          
+  29          unsigned char EPROM_Read_SPI(void) {
+  30   1        
+  31   1        unsigned char Data = 0;
+  32   1        
+  33   1        for( SPI_i = 0; SPI_i <= 7; SPI_i++ ) {
+  34   2          
+  35   2          CLK = 1; //讀當前時脈的資料，與寫入資料不同，讀取時必須在時脈為高電位時讀
+             -取
+  36   2          
+  37   2            if( SO != 0 ) Data++; //+1，SO為EPROM輸出腳
+  38   2          
+  39   2          CLK = 0;
+  40   2          
+  41   2            if(SPI_i < 7) Data <<= 1; //將Data資料全部左移 1bit (最後總共向左移動8 bits)
+  42   2        
+  43   2        }
+  44   1        return Data;  
+  45   1      }
+  46          
+  47          /** -----EPROM Writ----- **/
+  48          //**函式分為兩種功能：
+  49          //**  1. 一次寫入1個bytes(8 bits)  : char 
+  50          //**  2. 一次寫入2個bytes(16 bits) : int
+  51          
+  52          void EPROM_Writ_Data8(unsigned int address,unsigned char Data) {  //unsigned char為8bits
+  53   1        EA = 0; //8051定義腳位：0表示-禁止所有中斷功能、1表示-啟用中斷功能
+C51 COMPILER V9.56.0.0   EPROM                                                             11/10/2017 09:15:03 PAGE 2   
+
+  54   1        CS = 0; //EPROM致能腳 (低準位智能)
+  55   1        EPROM_Writ_SPI( 0x06 ); //EPROM Op-code開啟/關閉寫入功能 ("0x06" Set Write Enable、"0x04" Write 
+             -Disable)
+  56   1        CS = 1;
+  57   1        
+  58   1        _nop_();
+  59   1        //_nop_();
+  60   1        
+  61   1        CS = 0;
+  62   1        EPROM_Writ_SPI( 0x02 ); //EPROM Op-code(Write memory data)寫入資料指令
+  63   1        
+  64   1        //資料寫入：位址指定
+  65   1        //位址有 2 Bytes (ex. 0x0234)
+  66   1        EPROM_Writ_SPI( address >> 8 );     //第一次寫入資料為：0x02 
+  67   1        EPROM_Writ_SPI( address & 0x00ff ); //第二次寫入資料為：0x34
+  68   1        
+  69   1        //寫入要儲存的內容
+  70   1        EPROM_Writ_SPI( Data );
+  71   1        
+  72   1        CS = 1;
+  73   1        EA = 1;
+  74   1      } 
+  75          
+  76          void EPROM_Writ_Data16(unsigned int address,unsigned int Data) {  //unsigned int為16bits
+  77   1        EA = 0;
+  78   1        CS = 0;
+  79   1        EPROM_Writ_SPI( 0x06 );
+  80   1        CS = 1;
+  81   1        
+  82   1        _nop_();
+  83   1        _nop_();
+  84   1        
+  85   1        CS = 0;
+  86   1      
+  87   1        EPROM_Writ_SPI( 0x02 );
+  88   1        EPROM_Writ_SPI( address >> 8 );
+  89   1        EPROM_Writ_SPI( address & 0x00ff );
+  90   1        
+  91   1        //寫入第二次資料時，會自動換到下一個位址儲存(只要CS沒有為0)
+  92   1        EPROM_Writ_SPI( Data >> 8 );    
+  93   1        EPROM_Writ_SPI( Data & 0x00ff );
+  94   1        
+  95   1        CS = 1;
+  96   1        EA = 1;
+  97   1      }
+  98          
+  99          /** -----EPROM Read----- **/
+ 100          unsigned int R_Data;
+ 101          
+ 102          unsigned char EPROM_Read_Data8(unsigned int address) {  
+ 103   1      
+ 104   1        EA = 0;
+ 105   1        CS = 0;
+ 106   1        EPROM_Writ_SPI( 0x03 ); //EPROM Op-code(Read Memory Data) 讀取資料指令
+ 107   1        
+ 108   1        //寫入需讀取的位址
+ 109   1        EPROM_Writ_SPI( address >> 8 );   
+ 110   1        EPROM_Writ_SPI( address & 0x00ff );
+ 111   1        
+ 112   1        //取得寫入位址的資料
+ 113   1        R_Data = EPROM_Read_SPI(); 
+ 114   1        CS = 1; 
+C51 COMPILER V9.56.0.0   EPROM                                                             11/10/2017 09:15:03 PAGE 3   
+
+ 115   1        EA = 1;
+ 116   1        return R_Data;
+ 117   1      }
+ 118          
+ 119          unsigned int EPROM_Read_Data16(unsigned int address)  {
+ 120   1        
+ 121   1        EA = 0;
+ 122   1        CS = 0;
+ 123   1        EPROM_Writ_SPI( 0x03 );
+ 124   1        EPROM_Writ_SPI( address >> 8 );
+ 125   1        EPROM_Writ_SPI( address & 0x00ff );
+ 126   1        
+ 127   1        R_Data = EPROM_Read_SPI();
+ 128   1        R_Data <<= 8;
+ 129   1        R_Data += EPROM_Read_SPI();
+ 130   1        CS = 1;
+ 131   1        EA = 1;
+ 132   1        return R_Data;
+ 133   1        
+ 134   1      }
+ 135          
+ 136          /** -----EPROM Function----- **/
+ 137          void EPROM_Test(void) {
+ 138   1        
+ 139   1        unsigned short Test_address=0, Test_Record=0;//Test_address : 指定EPROM的位址、Test_Record : 紀錄
+             -EPROM位址裡的數值
+ 140   1        
+ 141   1        //EPROM總容量 2048 * 8bits (2048=0x0800)
+ 142   1        for(Test_address = 0x000; Test_address < 0x800; Test_address++) {
+ 143   2          
+ 144   2            //讀取EPROM位址資料，並由變數Test_Record承接此位址資料
+ 145   2            Test_Record = EPROM_Read_Data8(Test_address);
+ 146   2          
+ 147   2          //Step 02:
+ 148   2              //如果該位址的值原本就為0x55則:
+ 149   2            if (Test_Record == 0x55) {
+ 150   3              
+ 151   3                //將0xAA寫入FT指定之位址
+ 152   3                EPROM_Writ_Data8(Test_address, 0xAA);
+ 153   3                
+ 154   3                //接著讀取FT指定位址之資料，判斷是否為0xAA，如果不是，表示EPROM寫入故障�
+             -��LCM顯示故障提示
+ 155   3                if (EPROM_Read_Data8(Test_address) != 0xAA)   LCM_Print_Char_Function(4,"ERPOM ERROR");
+ 156   3                
+ 157   3                //測試完EPROM後，回復 EPROM 原本的資料
+ 158   3                EPROM_Writ_Data8(Test_address, Test_Record);     
+ 159   3            }
+ 160   2          //Step 01:
+ 161   2            else {
+ 162   3                //將0x55寫入指定位址(Test_address)
+ 163   3                EPROM_Writ_Data8(Test_address, 0x55);
+ 164   3                
+ 165   3                //接著讀取(Test_address)位址之資料，判斷是否為0x55，如果不是，表示EPROM寫入�
+             -��障，LCM顯示故障提示
+ 166   3                if (EPROM_Read_Data8(Test_address) != 0x55)   LCM_Print_Char_Function(4,"ERPOM ERROR");
+ 167   3                
+ 168   3                //測試完EPROM後，回復 EPROM 原本的資料
+ 169   3                EPROM_Writ_Data8(Test_address, Test_Record);  
+ 170   3            }
+ 171   2        }
+ 172   1        
+ 173   1        LCM_Print_Char_Function(4,"ERPOM GOOD");
+C51 COMPILER V9.56.0.0   EPROM                                                             11/10/2017 09:15:03 PAGE 4   
+
+ 174   1      }
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =    394    ----
+   CONSTANT SIZE    =     23    ----
+   XDATA SIZE       =   ----    ----
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =      3      14
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+   EDATA SIZE       =   ----    ----
+   HDATA SIZE       =   ----    ----
+   XDATA CONST SIZE =   ----    ----
+   FAR CONST SIZE   =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

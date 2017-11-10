@@ -1,0 +1,99 @@
+C51 COMPILER V9.56.0.0   OTHER                                                             11/10/2017 09:15:02 PAGE 1   
+
+
+C51 COMPILER V9.56.0.0, COMPILATION OF MODULE OTHER
+OBJECT MODULE PLACED IN other.OBJ
+COMPILER INVOKED BY: C:\Keil_v5\C51\BIN\C51.EXE other.c OMF2 OPTIMIZE(8,SPEED) BROWSE INCDIR(C:\Keil_v5\C51\INC\SiLABS\s
+                    -hared\si8051Base) DEBUG PRINT(.\Listings\other.lst) TABS(2)
+
+line level    source
+
+   1          /**=============其他功能==============
+   2            * 撰寫日期：2017/08/18
+   3          */
+   4          
+   5          #include "other.h" 
+   6          //==========功能："數字"轉"字串"=========
+   7          /** Number on countu**/
+   8          int other_n_tu(int number, int count) {
+   9   1          int result=1;
+  10   1          while(count-- > 0)
+  11   1          result *= number;   
+  12   1      
+  13   1          return result;
+  14   1      }
+  15          
+  16          /***Convert float to string***/
+  17          void other_loat_to_string(float f, char r[]) {
+  18   1        
+  19   1          long int xdata length, length2, i, number, position, sign;
+  20   1          float xdata number2;
+  21   1      
+  22   1          sign = -1;   // -1 == positive number
+  23   1          if (f < 0) {
+  24   2              sign = '-';
+  25   2              f *= -1;    
+  26   2          }   
+  27   1      
+  28   1      
+  29   1          number2 = f;  
+  30   1          number = f;
+  31   1          length = 0;  // size of decimal part
+  32   1          length2 = 0; //  size of tenth
+  33   1      
+  34   1          /* calculate length2 tenth part*/
+  35   1          while( (number2 - (float)number) != 0.0 && !((number2 - (float)number) < 0.0) )
+  36   1          {
+  37   2               number2 = f * (other_n_tu(10.0, length2 + 1));
+  38   2               number = number2;  
+  39   2      
+  40   2               length2++;
+  41   2          }
+  42   1      
+  43   1          /* calculate length decimal part*/
+  44   1          for(length = (f > 1) ? 0 : 1; f > 1; length++) 
+  45   1              f /= 10;
+  46   1      
+  47   1          position = length;
+  48   1          length = length + 1 + length2;
+  49   1          number = number2;
+  50   1          
+  51   1          if(sign == '-') {
+  52   2              length++;
+  53   2              position++;
+  54   2          }
+C51 COMPILER V9.56.0.0   OTHER                                                             11/10/2017 09:15:02 PAGE 2   
+
+  55   1      
+  56   1          for(i = length; i >= 0 ; i--) {
+  57   2              if(i == (length))
+  58   2                  r[i] = '\0';
+  59   2              else if(i == (position))
+  60   2                  r[i] = '.';
+  61   2              else if(sign == '-' && i == 0)
+  62   2                  r[i] = '-';
+  63   2              else  
+  64   2              {
+  65   3                  r[i] = (number % 10) + '0';
+  66   3                  number /=10;
+  67   3              }
+  68   2          }
+  69   1      }
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =   1036    ----
+   CONSTANT SIZE    =   ----    ----
+   XDATA SIZE       =   ----      28
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----       9
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+   EDATA SIZE       =   ----    ----
+   HDATA SIZE       =   ----    ----
+   XDATA CONST SIZE =   ----    ----
+   FAR CONST SIZE   =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

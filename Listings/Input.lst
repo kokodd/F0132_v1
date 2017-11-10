@@ -1,0 +1,283 @@
+C51 COMPILER V9.56.0.0   INPUT                                                             11/10/2017 09:15:03 PAGE 1   
+
+
+C51 COMPILER V9.56.0.0, COMPILATION OF MODULE INPUT
+OBJECT MODULE PLACED IN Input.OBJ
+COMPILER INVOKED BY: C:\Keil_v5\C51\BIN\C51.EXE Input.c OMF2 OPTIMIZE(8,SPEED) BROWSE INCDIR(C:\Keil_v5\C51\INC\SiLABS\s
+                    -hared\si8051Base) DEBUG PRINT(.\Listings\Input.lst) TABS(2)
+
+line level    source
+
+   1          #include  <REG_MPC89L51-515.h>
+   2          #include  "CPLD.h"
+   3          #include  "Input.h"
+   4          #include  "delay.h"
+   5          #include  "LCM.h"
+   6          #include  "error.h"
+   7          
+   8          
+   9          /** input pin **/
+  10          unsigned char xdata INS000     _at_ 0xc000; //input的資料暫存器
+  11          
+  12          
+  13          /** input 資料暫存變數 **/
+  14          typedef idata struct  {
+  15            unsigned char kss3;
+  16            unsigned char kss4;
+  17            unsigned char kss5;
+  18            unsigned char kss6; 
+  19          }INPUT;
+  20          INPUT my_input;
+  21          
+  22          
+  23          /** input 暫存變數初始化 **/
+  24          void Input_Variable_Init(void)  {
+  25   1      
+  26   1            my_input.kss3 = 0;
+  27   1            my_input.kss4 = 0;
+  28   1            my_input.kss5 = 0;
+  29   1            my_input.kss6 = 0;
+  30   1      }
+  31          
+  32          
+  33          /**  IO 致能  **/
+  34          void Enable_Pin(unsigned char Enable_name)  {
+  35   1          
+  36   1        switch(Enable_name) {
+  37   2          
+  38   2          case COIN_1:    cpld_out(0x86,1);   break;
+  39   2          case METER_CS:    cpld_out(0x87,1);   break;
+  40   2          case METER_A:   cpld_out(0x70,1);   break; 
+  41   2          case METER_B:   cpld_out(0x71,1);   break; 
+  42   2          case METER_C:   cpld_out(0x72,1);   break; 
+  43   2          
+  44   2        }
+  45   1      }//Enable END
+  46          
+  47          /**  IO 禁能  **/
+  48          void Disable_Pin(unsigned char Disable_name) {
+  49   1      
+  50   1        switch(Disable_name) {
+  51   2        
+  52   2          case COIN_1:    cpld_out(0x86,0);   break;
+  53   2          case METER_CS:    cpld_out(0x87,0);   break;
+  54   2          case METER_A:   cpld_out(0x70,0);   break; 
+C51 COMPILER V9.56.0.0   INPUT                                                             11/10/2017 09:15:03 PAGE 2   
+
+  55   2          case METER_B:   cpld_out(0x71,0);   break; 
+  56   2          case METER_C:   cpld_out(0x72,0);   break; 
+  57   2        }
+  58   1      
+  59   1      }//Disable END
+  60          /** input 腳位重新命名(方便辨識) **/
+  61          bit Read_Data_from(unsigned char Pin_name)  {
+  62   1        
+  63   1        switch(Pin_name)  {
+  64   2          case  COIN_1:   return P32;   break;    //JP2 第2腳
+  65   2        }
+  66   1      
+  67   1      }
+  68          
+  69          /**   按鈕開關   **/
+  70          /*- Pin_name：輸入腳位名稱 -*/
+  71          bit Input_Pin_Data(unsigned char Pin_name)  {
+  72   1      
+  73   1        switch(Pin_name) {
+  74   2          
+  75   2          case HIT1: //由Input.h內宣告代號
+  76   2            
+  77   2              cpld_out(0x63,1); //Input致能腳位選擇，0x63為KSS3 
+  78   2              
+  79   2              my_input.kss3 = INS000; //將資料暫存器INS資料放到暫存變數 my_cpld.kss3 內儲存
+  80   2              
+  81   2              //如果開關按下後執行的動作超過彈跳時間，則不需要防彈跳
+  82   2              if( (my_input.kss3 & 0x20) == 0 )   delay1ms(20); //防彈跳(debouncer)，需延遲20ms
+  83   2                
+  84   2              return (my_input.kss3 & 0x20);  /***  只需要HIT1腳位資料 (當開關ON時return 0，開關OFF時re
+             -turn 1)  ***/
+  85   2              /*    INS腳位會一次讀取kss3所有輸入的狀態，AND 0X20即可針對HIT1腳位是否有訊號�
+             -��入    */
+  86   2          break;
+  87   2              
+  88   2          case GOOD2: //由Input.h內宣告代號
+  89   2            
+  90   2              cpld_out(0x64,1);
+  91   2          
+  92   2              my_input.kss4 = INS000; 
+  93   2          
+  94   2              if( (my_input.kss4 & 0x08) == 0 )   delay1ms(20);
+  95   2          
+  96   2              return (my_input.kss4 & 0x08); /*** 只需要取得 GOOD2 腳位資料  ***/
+  97   2          break;
+  98   2          
+  99   2          case METER_A:  //電子碼錶，斷線檢知
+ 100   2          
+ 101   2              //需使用"Enable_Pin(METER_CS)"函式致能電子碼錶
+ 102   2          
+ 103   2              cpld_out(0x66,1); //Input致能腳位選擇，0x66為KSS6
+ 104   2                
+ 105   2              //delay1ms(20);
+ 106   2              my_input.kss6 = INS000; 
+ 107   2          
+ 108   2              return (my_input.kss6 & 0x20); /***取得  RD5 腳位資料 ***/
+ 109   2          break;
+ 110   2          
+ 111   2          case METER_B: 
+ 112   2              
+ 113   2              cpld_out(0x66,1); //Input致能腳位選擇，0x66為KSS6
+ 114   2              
+C51 COMPILER V9.56.0.0   INPUT                                                             11/10/2017 09:15:03 PAGE 3   
+
+ 115   2              my_input.kss6 = INS000; 
+ 116   2          
+ 117   2              return (my_input.kss6 & 0x40);/***取得  RD6 腳位資料  ***/
+ 118   2          break;
+ 119   2              
+ 120   2          case METER_C:
+ 121   2              
+ 122   2              cpld_out(0x66,1); //Input致能腳位選擇，0x66為KSS6
+ 123   2              
+ 124   2              my_input.kss6 = INS000; 
+ 125   2          
+ 126   2              return (my_input.kss6 & 0x80);/***取得  RD7 腳位資料  ***/
+ 127   2          break;
+ 128   2          
+ 129   2          case JP5_PT1: //test:電眼腳位
+ 130   2            
+ 131   2              cpld_out(0x63,1); //Input致能腳位選擇，0x63為KSS3 
+ 132   2              
+ 133   2              my_input.kss3 = INS000; 
+ 134   2              
+ 135   2              //如果開關按下後執行的動作超過彈跳時間，則不需要防彈跳
+ 136   2              if( (my_input.kss3 & 0x01) == 0 )   delay1ms(20); //防彈跳(debouncer)，需延遲20ms
+ 137   2                
+ 138   2              return (my_input.kss3 & 0x01);
+ 139   2          break;
+ 140   2          
+ 141   2          case JP5_GOOD1: //test:近接開關腳位 (NPN型 0:ON(吸磁) 1:OFF )
+ 142   2            
+ 143   2              cpld_out(0x64,1); //Input致能腳位選擇，0x63為KSS4 
+ 144   2              
+ 145   2              my_input.kss4 = INS000; 
+ 146   2              
+ 147   2              //如果開關按下後執行的動作超過彈跳時間，則不需要防彈跳
+ 148   2              if( (my_input.kss4 & 0x01) == 0 )   delay1ms(20); //防彈跳(debouncer)，需延遲20ms
+ 149   2                
+ 150   2              return (my_input.kss4 & 0x04);/***取得 GOOD1_RD2 腳位資料 ***/
+ 151   2          break;
+ 152   2      
+ 153   2        }
+ 154   1        
+ 155   1        return -1;
+ 156   1      }
+ 157          
+ 158          
+ 159          /**   投幣機  **/
+ 160          bit Coin_Function(void) {
+ 161   1        
+ 162   1        static unsigned int Coin_Timer = 0; //防釣魚計數(1ms)
+ 163   1        static unsigned char Coin_Flag = 0; //是否投幣(0:無  1:有)
+ 164   1      
+ 165   1        if( Read_Data_from(COIN_1)  == 0  ) {
+ 166   2          Coin_Timer++; //當投幣機有訊號(0表示有硬幣投入)，則開始計數脈衝訊號持續時間
+ 167   2        }
+ 168   1        else  {
+ 169   2            if( Coin_Timer  >=  5  &&  Coin_Timer <=  150 ) {
+ 170   3                  Coin_Flag = 1;  //如果脈衝訊號介於5~150ms之間則表示無釣魚，Coin_Flag為1
+ 171   3                  Coin_Timer = 0; //重置脈波計時變數，等待下一次投幣脈波偵測
+ 172   3            }
+ 173   2            //偵測到釣魚-禁能
+ 174   2            else if ( Coin_Timer  > 150 ) { 
+ 175   3              Disable_Pin(COIN_1);//投幣器禁能
+ 176   3              Coin_Timer = 0;
+C51 COMPILER V9.56.0.0   INPUT                                                             11/10/2017 09:15:03 PAGE 4   
+
+ 177   3              return -1;
+ 178   3            }
+ 179   2        }
+ 180   1      
+ 181   1        // Coin_Flag==1 : 偵測到投幣
+ 182   1        if( Coin_Flag == 1  ) {
+ 183   2          Coin_Flag = 0;
+ 184   2          return 1;
+ 185   2        }
+ 186   1        
+ 187   1        return 0;
+ 188   1      }
+ 189          
+ 190          bit Meter_ADD(char *Meter_A, char *Meter_B, char *Meter_C) {
+ 191   1      
+ 192   1        static char idata MeterTimer = 0;  //碼錶脈波計數
+ 193   1        
+ 194   1         if( MeterTimer == 0 ) {
+ 195   2          
+ 196   2           //檢查電子碼錶連接狀態
+ 197   2           Meter_Online_Check();
+ 198   2           
+ 199   2           //如果 Meter_ 變數大於0，則將電子碼錶拉 High ，並開始計數
+ 200   2           //電子碼錶只要拉 High 一次即可等待 LOW 狀態到來，狀態一次High、Low電子碼錶�
+             -�1
+ 201   2          if( *Meter_A > 0 )  Enable_Pin(METER_A);
+ 202   2          if( *Meter_B > 0 )  Enable_Pin(METER_B);
+ 203   2          if( *Meter_C > 0 )  Enable_Pin(METER_C);
+ 204   2         }
+ 205   1         
+ 206   1         MeterTimer++;
+ 207   1         
+ 208   1         //當High狀態持續30ms則狀態改LOW (Interrupt 1ms 偵測一次)
+ 209   1         if( MeterTimer == 30 ) {
+ 210   2             //偵測電子碼錶連接狀態，如果連結狀態沒問題，則將 Meter_ 變數減1
+ 211   2             //如果 Meter_ 變數設定為2，減1之後變數為1，則脈波則會再Hight、Low一次 (此段�
+             -��式為電子碼錶+2功能)
+ 212   2            if( Input_Pin_Data(METER_A) ) *Meter_A-=1;
+ 213   2            if( Input_Pin_Data(METER_B) ) *Meter_B-=1;
+ 214   2            if( Input_Pin_Data(METER_C) ) *Meter_C-=1;
+ 215   2           
+ 216   2             //狀態拉LOW
+ 217   2            Disable_Pin(METER_A);
+ 218   2            Disable_Pin(METER_B);
+ 219   2            Disable_Pin(METER_C);
+ 220   2         }
+ 221   1         
+ 222   1         //脈波一次時間：60ms (High：30ms + LOW 30ms)
+ 223   1         //60ms結束才會送下一次脈波(可避免電子碼錶因脈波High、Low太快偵測錯誤)
+ 224   1         if( MeterTimer > 60 ) {
+ 225   2             MeterTimer=0;
+ 226   2             return 1;
+ 227   2         }
+ 228   1         
+ 229   1         return -1;
+ 230   1      }
+ 231          
+ 232          void Meter_Online_Check(void) {
+ 233   1        
+ 234   1        //當電子碼錶，遭拔除，則會回傳該腳位"Input_Pin_Data()"的值：
+ 235   1        //Connect：回傳"0"、Disconnect：回傳"1"。(和按鈕開關相同)
+ 236   1        
+C51 COMPILER V9.56.0.0   INPUT                                                             11/10/2017 09:15:03 PAGE 5   
+
+ 237   1          if( Input_Pin_Data(METER_A) == 1 || Input_Pin_Data(METER_B) == 1 || Input_Pin_Data(METER_C) ==1 ) {
+ 238   2              cpld_out(0xB3,1); //LED亮
+ 239   2          }
+ 240   1        
+ 241   1      
+ 242   1      }
+*** WARNING C291 IN LINE 67 OF Input.c: not every exit path returns a value
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =    598    ----
+   CONSTANT SIZE    =   ----    ----
+   XDATA SIZE       =   ----    ----
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =      3       9
+   IDATA SIZE       =      5    ----
+   BIT SIZE         =   ----    ----
+   EDATA SIZE       =   ----    ----
+   HDATA SIZE       =   ----    ----
+   XDATA CONST SIZE =   ----    ----
+   FAR CONST SIZE   =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  1 WARNING(S),  0 ERROR(S)

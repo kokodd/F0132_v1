@@ -1,0 +1,16 @@
+"STARTUP.obj",
+"main.obj",
+"delay.obj",
+"other.obj",
+"CPLD.obj",
+"LCM.obj",
+"EPROM.obj",
+"Interrupt.obj",
+"RS232.obj",
+"Input.obj",
+"error.obj",
+"Motor.obj",
+"Music.obj" 
+TO "My_132Code_v1" 
+
+PRINT(".\Listings\My_132Code_v1.map")

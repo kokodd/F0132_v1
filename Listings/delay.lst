@@ -1,0 +1,56 @@
+C51 COMPILER V9.56.0.0   DELAY                                                             11/10/2017 09:15:02 PAGE 1   
+
+
+C51 COMPILER V9.56.0.0, COMPILATION OF MODULE DELAY
+OBJECT MODULE PLACED IN delay.OBJ
+COMPILER INVOKED BY: C:\Keil_v5\C51\BIN\C51.EXE delay.c OMF2 OPTIMIZE(8,SPEED) BROWSE INCDIR(C:\Keil_v5\C51\INC\SiLABS\s
+                    -hared\si8051Base) DEBUG PRINT(.\Listings\delay.lst) TABS(2)
+
+line level    source
+
+   1          /**=============延遲函式==============**/
+   2          /** 頻率：11.0592M Hz                 **/
+   3          #include "delay.h"
+   4          
+   5          
+   6          //void delayus(void) {
+   7          //   unsigned char i;
+   8          //   for (i = 0; i <= 10; i++);
+   9          //}
+  10          
+  11          void delay1us(unsigned char k) {
+  12   1         unsigned char i;
+  13   1         for (i = 0; i <= 10*k; i++);
+  14   1      }
+  15          
+  16          void delay1ms(unsigned char k) {
+  17   1        unsigned char i, j;
+  18   1        for (j = 0; j < k; j++)
+  19   1          for (i = 0; i <= 151; i++);
+  20   1          
+  21   1      }
+  22          
+  23          void delay100ms(unsigned char r) {
+  24   1        unsigned char i, j, k;
+  25   1        for (k = 0; k < r; k++)
+  26   1        for (j = 0; j < 100; j++)
+  27   1          for (i = 0; i <= 152; i++);
+  28   1      } 
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =     73    ----
+   CONSTANT SIZE    =   ----    ----
+   XDATA SIZE       =   ----    ----
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----    ----
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+   EDATA SIZE       =   ----    ----
+   HDATA SIZE       =   ----    ----
+   XDATA CONST SIZE =   ----    ----
+   FAR CONST SIZE   =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

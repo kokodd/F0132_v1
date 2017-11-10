@@ -1,0 +1,5 @@
+".\Objects\STARTUP.obj",
+".\Objects\main.obj" 
+TO ".\Objects\my_132code_v1" 
+
+PRINT(".\Listings\my_132code_v1.map")

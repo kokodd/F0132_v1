@@ -1,0 +1,294 @@
+C51 COMPILER V9.56.0.0   LCM                                                               11/10/2017 09:15:02 PAGE 1   
+
+
+C51 COMPILER V9.56.0.0, COMPILATION OF MODULE LCM
+OBJECT MODULE PLACED IN LCM.OBJ
+COMPILER INVOKED BY: C:\Keil_v5\C51\BIN\C51.EXE LCM.c OMF2 OPTIMIZE(8,SPEED) BROWSE INCDIR(C:\Keil_v5\C51\INC\SiLABS\sha
+                    -red\si8051Base) DEBUG PRINT(.\Listings\LCM.lst) TABS(2)
+
+line level    source
+
+   1          #include <stdint.h> //路徑：C:\Keil_v5\C51\INC\SiLABS\shared\si8051Base
+   2          #include <stdio.h>
+   3          #include <stdlib.h> //function：動態記憶體配置
+   4          #include <string.h> //function：strlen
+   5          
+   6          
+   7          #include "CPLD.h"
+   8          #include "LCM.h"
+   9          #include "other.h"
+  10          #include "delay.h"
+  11          
+  12          
+  13          
+  14          /** LCM_Basic_setting 說明：R/W(SID) 控制函式
+  15            *
+  16            * Select：命令LCM執行-->控制指令、顯示指令
+  17            * Address：8位元數據(高4位與低4位)，指令輸入(1Bytes) 
+  18            *  #Address 可直接丟"字串"、'字元'(英文&符號)，LCM會自行判斷
+  19            *
+  20          ***/
+  21          void LCM_Basic_Setting(signed char  Select, signed char  Address) {
+  22   1      
+  23   1            signed char  decide_8bits = 0; //輸入訊號是否為 8bits
+  24   1        
+  25   1            unsigned char LCM_command; //LCM_Basic_Setting 專用暫存變數(儲存SID控制位址)
+  26   1            unsigned char LCM_address; //LCM_Basic_Setting 專用暫存變數(儲存SID高4,低4位址)
+  27   1        
+  28   1            /**===== R/W、E 腳位控制 =====
+  29   1              * R/W = SID :   配合SCLK的輸入訊號，一次輸入一個位元訊號
+  30   1              *   cpld_out(LCM_SID,OR);   --> SID = '1' 
+  31   1              *   cpld_out(LCM_SID,AND);  --> SID = '0'
+  32   1              *
+  33   1              * E = SCLK  ： 脈波訊號，配合R/W的位元資料輸入
+  34   1              *   cpld_out(LCM_SCLK,OR);   --> E = '1'  
+  35   1              *   cpld_out(LCM_SCLK,AND);  --> E = '0'
+  36   1            **/
+  37   1        
+  38   1            cpld_out(LCM_SID,AND);  //SID->'0'
+  39   1              //cpld_action(); //立刻執行(立即將暫存於變數的值，輸出到該腳位址)
+  40   1        
+  41   1            // LCM_1：ON
+  42   1            cpld_out(LCM_CS,OR); //CS = '1'
+  43   1              //cpld_action();
+  44   1            
+  45   1            /*==== 開始輸入訊號進入LCM ====*/
+  46   1            
+  47   1            switch( Select ) {
+  48   2              case LCM_Select_Control:  LCM_command = 0xF8; break;  //LCM為[控制狀態]
+  49   2              case LCM_Select_Dispaly:  LCM_command = 0xFA; break;  //LCM為[顯示狀態]  
+  50   2              
+  51   2              default : LCM_command = Select; break;
+  52   2            }
+  53   1            
+  54   1            /*----第1字節： LCM串口控制格式 (8 bits)----*/
+C51 COMPILER V9.56.0.0   LCM                                                               11/10/2017 09:15:02 PAGE 2   
+
+  55   1            for(decide_8bits = 7; decide_8bits >= 0; decide_8bits--) {
+  56   2            
+  57   2                if( (LCM_command & (0x01 << decide_8bits) ) >> decide_8bits == 1 )  cpld_out(LCM_SID,OR);  //SID = '1'
+  58   2                  else cpld_out(LCM_SID,AND); //SID = '0'
+  59   2                        //cpld_action();
+  60   2              
+  61   2                  //打E(SCLK)脈波訊號
+  62   2                    cpld_out(LCM_SCLK,OR);  //SCLK = '1'
+  63   2                      //cpld_action();
+  64   2                    cpld_out(LCM_SCLK,AND); //SCLK = '0'
+  65   2                      //cpld_action();
+  66   2            }
+  67   1            
+  68   1            /*----第2字節： 8位數據的 高4位元 (DDDD,0000)----*/
+  69   1            LCM_address = (0xF0 & Address);
+  70   1            for(decide_8bits = 7; decide_8bits >= 0; decide_8bits--) {
+  71   2                
+  72   2                if( (LCM_address & (0x01 << decide_8bits)) >> decide_8bits == 1 ) cpld_out(LCM_SID,OR); //SID = '1'
+  73   2                  else cpld_out(LCM_SID,AND); //SID = '0'
+  74   2                        //cpld_action();
+  75   2              
+  76   2                  //打E(SCLK)脈波訊號
+  77   2                    cpld_out(LCM_SCLK,OR);  //SCLK = '1'
+  78   2                      //cpld_action();
+  79   2                    cpld_out(LCM_SCLK,AND); //SCLK = '0'
+  80   2                      //cpld_action();
+  81   2            }
+  82   1            
+  83   1            /*----第3字節： 8位數據的 低4位元 (0000,DDDD)----*/
+  84   1            LCM_address = (0x0F & Address) << 4;
+  85   1            for(decide_8bits = 7; decide_8bits >= 0; decide_8bits--) {
+  86   2                
+  87   2                if( (LCM_address & (0x01 << decide_8bits)) >> decide_8bits == 1 ) cpld_out(LCM_SID,OR); //SID = '1'
+  88   2                  else cpld_out(LCM_SID,AND); //SID = '0'
+  89   2                        //cpld_action();
+  90   2              
+  91   2                  //打E(SCLK)脈波訊號
+  92   2                    cpld_out(LCM_SCLK,OR);  //SCLK = '1'
+  93   2                      //cpld_action();
+  94   2                    cpld_out(LCM_SCLK,AND); //SCLK = '0'
+  95   2                      //cpld_action();
+  96   2            }
+  97   1            
+  98   1            
+  99   1            // LCM_1：OFF
+ 100   1            cpld_out(LCM_CS,AND); //CS = '0'
+ 101   1              //cpld_action();
+ 102   1        
+ 103   1      }
+ 104          
+ 105          /** 
+ 106            *   LCM 功能選擇函式
+ 107          **/
+ 108          
+ 109          //  LCM_Display_Function 說明：LCM_顯示效果選擇
+ 110          //-------文字顯示------
+ 111          //  1.顯示功能 ON 一次就可以持續使用了，等到結束在OFF。
+ 112          //-------文字左右移動------
+ 113          //  1. 整體左、右移需先使用：LCM_Print_Char_Function 再使用 LCM_Display_Function 左右移功
+             -能。
+ 114          //  2. 整體左移、右移：一次會移動整個字串，如果要做到smooth要將字串拆成字元�
+             -��位移???
+C51 COMPILER V9.56.0.0   LCM                                                               11/10/2017 09:15:02 PAGE 3   
+
+ 115          //
+ 116          //
+ 117          void LCM_Display_Function(unsigned char  FUN_) {
+ 118   1      
+ 119   1          switch(FUN_) {
+ 120   2            case 0 :  LCM_Basic_Setting (LCM_Select_Control, 0x08); break;  //顯示功能OFF
+ 121   2            case 1 :  LCM_Basic_Setting (LCM_Select_Control, 0x0C); break;  //顯示功能ON
+ 122   2            case 2 :  LCM_Basic_Setting (LCM_Select_Control, 0x0E); break;  //顯示+開啟游標 (游標 '___')
+ 123   2            case 3 :  LCM_Basic_Setting (LCM_Select_Control, 0x0D); break;  //顯示+開啟游標位置反白
+ 124   2            case 4 :  LCM_Basic_Setting (LCM_Select_Control, 0x0F); break;  //開啟顯示+游標+游標反白
+ 125   2          }
+ 126   1      }
+ 127          
+ 128          
+ 129          
+ 130          //  LCM_RowCH_Function 說明：LCM_段落切換 (說明書P9.為漢字顯示座標)
+ 131          //=== 
+ 132          //=== 絕對位置：LCM_Basic_Setting( LCM_Select_Control , 1 AC6~AC0) 
+ 133          //=== AC6~AC0 為每一行的指定位置
+ 134          //===
+ 135          void LCM_Row_Function(unsigned char  ROW_) {
+ 136   1      
+ 137   1          switch(ROW_) {
+ 138   2            case 1 :  LCM_Basic_Setting (LCM_Select_Control, 0x80); break;  //Row 1
+ 139   2            case 2 :  LCM_Basic_Setting (LCM_Select_Control, 0x90); break;  //Row 2
+ 140   2            case 3 :  LCM_Basic_Setting (LCM_Select_Control, 0x88); break;  //Row 3
+ 141   2            case 4 :  LCM_Basic_Setting (LCM_Select_Control, 0x98); break;  //Row 4
+ 142   2          }
+ 143   1      }
+ 144          
+ 145          
+ 146          
+ 147          
+ 148          //===LCM_Print_Char_Function 說明：顯示字串符號，並回傳輸入字串長度
+ 149          //=== 
+ 150          //=== ROW_ : 顯示段落選擇
+ 151          //=== PRINT_[] : array 輸入顯示資料 (LCM可顯示：中字--> 4行*8個；  英文--> 4行x16個 ) 
+ 152          //===   輸入內容註記：
+ 153          //===         1.  TAB會顯示 "o"
+ 154          
+ 155          int LCM_Print_Char_Function(unsigned int ROW_, unsigned char  PRINT_[]) { 
+ 156   1        
+ 157   1          int  PRINT_length = 0,  count_length = 0; //紀錄顯示內容長度、計算文字長度
+ 158   1        
+ 159   1          PRINT_length  =  strlen(PRINT_); //判斷 PRINT_ 資料長度
+ 160   1        
+ 161   1          LCM_Row_Function(ROW_); //選擇顯示於第幾行
+ 162   1        
+ 163   1        
+ 164   1          //送入文字，並判斷是否需要'換行'
+ 165   1          while (count_length < PRINT_length) {
+ 166   2          
+ 167   2              LCM_Basic_Setting (LCM_Select_Dispaly, PRINT_[ count_length++ ]); //將文字個別送入LCM
+ 168   2              
+ 169   2                //判斷這行文字是否滿16位元
+ 170   2                if ( count_length %16 == 0 ) {
+ 171   3                    //如果滿了則 ROW_ +1(跳下一行)，等到在一次滿再+1，直到第4行後，跳回第一
+             -行
+ 172   3                    if ( ++ROW_ > 4)  ROW_ = 1; 
+ 173   3                        LCM_Row_Function(ROW_);
+ 174   3                }
+ 175   2          }
+C51 COMPILER V9.56.0.0   LCM                                                               11/10/2017 09:15:02 PAGE 4   
+
+ 176   1      
+ 177   1          //雖然LCM字串輸入時，未滿16位元LCM會自動用空格補滿16位元，
+ 178   1          //但是為了 LCM_Remove_Display 清除單行字串時使用，不需單行清除時，此while迴圈�
+             -�不使用
+ 179   1          //當count_length除於16之餘數不等於0時
+ 180   1          //(最後使用16個空格代替了此函式)
+ 181   1          
+ 182   1          /*
+ 183   1          while (count_length %16 != 0) {
+ 184   1            
+ 185   1            LCM_Basic_Setting (LCM_Select_Dispaly,  ' ');  //LCM_Basic_Setting 可直接判斷符號，'空格'表�
+             -��輸入空格符號。
+ 186   1            count_length++; //直到此行填滿16位元為止
+ 187   1          }
+ 188   1          */
+ 189   1          
+ 190   1          return  PRINT_length; //回傳輸入字串長度
+ 191   1      }
+ 192          
+ 193          
+ 194          //===LCM_Print_Number_Function 說明：顯示數字 (輸入Number無法使用：bit型態)
+ 195          void LCM_Print_Number_Function(unsigned int ROW_, float Number) {
+ 196   1      
+ 197   1          char xdata *Number_length;  //動態記憶體指標
+ 198   1          int  xdata  arrLen = 30;    //動態記憶體：配置空間大小
+ 199   1          
+ 200   1        /** 動態記憶體主程式 **/
+ 201   1          init_mempool( &Number_length, arrLen *sizeof(char) ); //初始化記憶體位置
+*** WARNING C259 IN LINE 201 OF LCM.c: 'parameter': pointer: different mspace
+ 202   1        
+ 203   1          Number_length = malloc ( arrLen *sizeof(char) );      //取得記憶體空間
+ 204   1          
+ 205   1          other_loat_to_string(Number, Number_length);          //任意數字轉字串
+ 206   1      
+ 207   1          LCM_Print_Char_Function( ROW_, Number_length);        //LCM輸出
+ 208   1        
+ 209   1        /** 釋放記憶體空間 **/
+ 210   1          free(Number_length);
+ 211   1      
+ 212   1      }
+ 213          
+ 214          //===LCM_Remove_Display 清除顯示內容
+ 215          //=== 
+ 216          void LCM_Remove_Display(unsigned char ROW_) {
+ 217   1          
+ 218   1          switch(ROW_) {
+ 219   2              case 0 :  LCM_Basic_Setting(LCM_Select_Control, 0x01);   break;   //清除全部內容...
+ 220   2              case 1 :  LCM_Print_Char_Function(1, "                ");  break; //只清除第一行
+ 221   2              case 2 :  LCM_Print_Char_Function(2, "                ");  break; //只清除第二行
+ 222   2              case 3 :  LCM_Print_Char_Function(3, "                ");  break; //只清除第三行
+ 223   2              case 4 :  LCM_Print_Char_Function(4, "                ");  break; //只清除第四行
+ 224   2          }
+ 225   1      }
+ 226          
+ 227          
+ 228          
+ 229          
+ 230          //===LCM_Effect_Function  LCM 效果指令
+ 231          //
+ 232          void LCM_Effect_Function( unsigned char Eff_ )  {
+ 233   1      
+ 234   1          //LCM_Basic_Setting(LCM_Select_Control, 0x30); //LCM功能設定：開啟8bit控制介面 & RE=0 只使�
+C51 COMPILER V9.56.0.0   LCM                                                               11/10/2017 09:15:02 PAGE 5   
+
+             -��基本指令 (RE=1 使用擴充指令)
+ 235   1          //LCM_Basic_Setting(LCM_Select_Control, 0x06); //游標右移
+ 236   1        
+ 237   1            switch(Eff_) {
+ 238   2              case MOV_Right: LCM_Basic_Setting (LCM_Select_Control, 0x1C); break;  // 字串向右移動
+ 239   2              case MOV_Left : LCM_Basic_Setting (LCM_Select_Control, 0x18); break;  // 字串向左移動
+ 240   2              
+ 241   2              case 3 :  // 字串開頭反白(反白範圍：2 bits)
+ 242   2                        LCM_Basic_Setting (LCM_Select_Control, 0x80); //反白位置( 初始設定 80H 位置 )
+ 243   2                        LCM_Basic_Setting (LCM_Select_Control, 0x0D); //開啟反白
+ 244   2                                                                            break;
+ 245   2              
+ 246   2              //ing....
+ 247   2          }
+ 248   1      
+ 249   1          
+ 250   1          
+ 251   1      }
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =    681    ----
+   CONSTANT SIZE    =     17    ----
+   XDATA SIZE       =   ----       2
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----      22
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+   EDATA SIZE       =   ----    ----
+   HDATA SIZE       =   ----    ----
+   XDATA CONST SIZE =   ----    ----
+   FAR CONST SIZE   =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  1 WARNING(S),  0 ERROR(S)
